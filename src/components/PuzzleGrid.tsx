@@ -12,6 +12,8 @@ interface Props {
   highlighted: Set<number>;
   activeLine?: LineRef;
   problems: PuzzleProblem[];
+  /** Clue lines a photo import was unsure about, as `"row-3"` keys. */
+  uncertain?: Set<string>;
   onCluesChange: (axis: Axis, index: number, clues: number[]) => void;
 }
 
@@ -27,6 +29,7 @@ export function PuzzleGrid({
   highlighted,
   activeLine,
   problems,
+  uncertain,
   onCluesChange,
 }: Props) {
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -118,6 +121,7 @@ export function PuzzleGrid({
               c % 5 === 0 ? 'major' : '',
               activeLine?.axis === 'col' && activeLine.index === c ? 'active' : '',
               badLines.has(`col-${c}`) ? 'invalid' : '',
+              uncertain?.has(`col-${c}`) ? 'uncertain' : '',
               editing?.axis === 'col' && editing.index === c ? 'editing' : '',
             ].join(' ')}
           >
@@ -136,6 +140,7 @@ export function PuzzleGrid({
             highlighted={highlighted}
             activeLine={activeLine}
             invalid={badLines.has(`row-${r}`)}
+            uncertain={uncertain?.has(`row-${r}`) ?? false}
             editing={editing?.axis === 'row' && editing.index === r}
             headerProps={headerProps}
             clueText={clueText}
@@ -174,6 +179,7 @@ interface RowProps {
   highlighted: Set<number>;
   activeLine?: LineRef;
   invalid: boolean;
+  uncertain: boolean;
   editing: boolean;
   headerProps: (axis: Axis, index: number) => Record<string, unknown>;
   clueText: (clues: number[]) => number[];
@@ -186,6 +192,7 @@ function Row({
   highlighted,
   activeLine,
   invalid,
+  uncertain,
   editing,
   headerProps,
   clueText,
@@ -203,6 +210,7 @@ function Row({
           r % 5 === 0 ? 'major' : '',
           rowActive ? 'active' : '',
           invalid ? 'invalid' : '',
+          uncertain ? 'uncertain' : '',
           editing ? 'editing' : '',
         ].join(' ')}
       >

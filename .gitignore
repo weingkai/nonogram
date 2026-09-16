@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vendored by `npm run setup:ocr`
+public/tesseract/
+
+# tesseract caches the decompressed model beside the process cwd when the Node test runs
+eng.traineddata

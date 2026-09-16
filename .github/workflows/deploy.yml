@@ -1,0 +1,65 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish, but only keep the newest queued one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The English model is ~3MB downloaded from a CDN; the wasm comes from node_modules.
+      - name: Cache the OCR model
+        uses: actions/cache@v4
+        with:
+          path: public/tesseract/eng.traineddata.gz
+          key: tesseract-eng-${{ hashFiles('scripts/setup-ocr.mjs') }}
+
+      - name: Vendor the OCR engine
+        run: npm run setup:ocr
+
+      - run: npx tsc -b
+      - run: npm run lint
+      # Runs after setup:ocr so the real-tesseract test is exercised rather than skipped.
+      - run: npm test
+
+      - name: Build
+        env:
+          # Derives "/nonogram/" from the repo name, so a rename or a fork still works.
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

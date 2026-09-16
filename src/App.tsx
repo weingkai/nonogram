@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controls } from './components/Controls';
 import { LogPanel } from './components/LogPanel';
+import { PhotoImport } from './components/PhotoImport';
 import { PuzzleGrid } from './components/PuzzleGrid';
 import { usePlayback } from './hooks/usePlayback';
 import { SAMPLES, samplePuzzle } from './samples';
@@ -43,6 +44,9 @@ export default function App() {
   const [puzzle, setPuzzle] = useState<Puzzle>(() => loadStored() ?? samplePuzzle(SAMPLES[0]));
   const [result, setResult] = useState<SolveResult | null>(null);
   const [solving, setSolving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  /** Clue lines the photo import was unsure about, as `"row-3"` keys. */
+  const [uncertain, setUncertain] = useState<Set<string>>(() => new Set());
 
   const playback = usePlayback(result?.steps.length ?? 0);
   const problems = useMemo(() => validatePuzzle(puzzle), [puzzle]);
@@ -59,6 +63,7 @@ export default function App() {
   const editPuzzle = useCallback((next: Puzzle) => {
     setPuzzle(next);
     setResult(null);
+    setUncertain(new Set());
   }, []);
 
   const handleClues = useCallback(
@@ -70,6 +75,14 @@ export default function App() {
         return { ...p, [key]: lists };
       });
       setResult(null);
+      // Checking a line is what clears its import warning.
+      setUncertain((current) => {
+        const key = `${axis}-${index}`;
+        if (!current.has(key)) return current;
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
     },
     [],
   );
@@ -181,6 +194,9 @@ export default function App() {
             ))}
           </select>
         </label>
+        <button className="setup-action" onClick={() => setImporting(true)}>
+          Load from photo
+        </button>
         <button
           className="setup-action"
           onClick={() =>
@@ -192,6 +208,17 @@ export default function App() {
           Clear clues
         </button>
       </div>
+
+      {uncertain.size > 0 && (
+        <p className="import-banner">
+          Imported from a photo. {uncertain.size} clue line{uncertain.size > 1 ? 's' : ''} read
+          poorly and {uncertain.size > 1 ? 'are' : 'is'} highlighted below — check
+          {uncertain.size > 1 ? ' them' : ' it'} against your puzzle, then solve.
+          <button className="link-button" onClick={() => setUncertain(new Set())}>
+            Dismiss
+          </button>
+        </p>
+      )}
 
       {problems.length > 0 && (
         <ul className="problems">
@@ -209,6 +236,7 @@ export default function App() {
             highlighted={highlighted}
             activeLine={currentStep?.line}
             problems={problems}
+            uncertain={uncertain}
             onCluesChange={handleClues}
           />
           <Controls
@@ -226,6 +254,18 @@ export default function App() {
           onJump={playback.setIndex}
         />
       </main>
+
+      {importing && (
+        <PhotoImport
+          onClose={() => setImporting(false)}
+          onApply={(imported, flagged) => {
+            setPuzzle(imported);
+            setResult(null);
+            setUncertain(flagged);
+            setImporting(false);
+          }}
+        />
+      )}
     </div>
   );
 }
