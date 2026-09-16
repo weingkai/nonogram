@@ -1,4 +1,3 @@
-import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cluesFromGrid, validatePuzzle } from './clues';
 import { solveAll } from './solve';
@@ -46,6 +45,25 @@ const PUZZLE_009: Puzzle = {
   ],
 };
 
+/** The solution, as a picture. */
+const PICTURE = [
+  '######...######',
+  '####..###..####',
+  '###.#######.###',
+  '##.#.#...#.#.##',
+  '#.#.###..#..#.#',
+  '#.#.##..###.#.#',
+  '.##..#..##..##.',
+  '.##.........##.',
+  '.##........###.',
+  '#.##......###.#',
+  '#.#.#.......#.#',
+  '##.#.##.#..#.##',
+  '###.##..###.###',
+  '####..###..####',
+  '######...######',
+];
+
 const render = (puzzle: Puzzle, grid: Int8Array) =>
   Array.from({ length: puzzle.height }, (_, r) =>
     Array.from({ length: puzzle.width }, (_, c) =>
@@ -60,18 +78,11 @@ describe('puzzle No. 009', () => {
 
   it('solves by pure logic, with no guessing', () => {
     const result = solveAll(PUZZLE_009);
-    writeFileSync(
-      '/private/tmp/claude-501/-Users-kai-Code-nonogram/e7a6b870-5ac8-4f0c-b72d-c0db61ae8cf0/scratchpad/picture.txt',
-      [
-        `${result.outcome} — ${result.steps.length} steps, ${result.elapsedMs.toFixed(1)}ms, ` +
-          `${result.steps.filter((s) => s.kind === 'guess').length} guesses`,
-        ...render(PUZZLE_009, result.grid),
-      ].join('\n'),
-    );
 
     expect(result.outcome).toBe('solved');
     // No guesses means every cell was forced, which also proves the solution is unique.
     expect(result.steps.filter((s) => s.kind === 'guess')).toEqual([]);
+    expect(render(PUZZLE_009, result.grid)).toEqual(PICTURE);
   });
 
   it('reproduces its own clues from the solved grid', () => {
