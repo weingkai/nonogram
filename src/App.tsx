@@ -138,7 +138,7 @@ export default function App() {
       </header>
 
       <div className="setup">
-        <label>
+        <label className="field">
           Width
           <input
             type="number"
@@ -151,7 +151,7 @@ export default function App() {
             }}
           />
         </label>
-        <label>
+        <label className="field">
           Height
           <input
             type="number"
@@ -164,7 +164,7 @@ export default function App() {
             }}
           />
         </label>
-        <label>
+        <label className="field field-wide">
           Sample
           <select
             value=""
@@ -181,6 +181,16 @@ export default function App() {
             ))}
           </select>
         </label>
+        <button
+          className="setup-action"
+          onClick={() =>
+            editPuzzle(
+              resized({ width: 0, height: 0, rows: [], cols: [] }, puzzle.width, puzzle.height),
+            )
+          }
+        >
+          Clear clues
+        </button>
       </div>
 
       {problems.length > 0 && (
@@ -207,9 +217,6 @@ export default function App() {
             solving={solving}
             canSolve={!fatal}
             onSolve={handleSolve}
-            onClear={() =>
-              editPuzzle(resized({ width: 0, height: 0, rows: [], cols: [] }, puzzle.width, puzzle.height))
-            }
           />
         </section>
 

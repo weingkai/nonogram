@@ -7,10 +7,9 @@ interface Props {
   solving: boolean;
   canSolve: boolean;
   onSolve: () => void;
-  onClear: () => void;
 }
 
-export function Controls({ playback, result, solving, canSolve, onSolve, onClear }: Props) {
+export function Controls({ playback, result, solving, canSolve, onSolve }: Props) {
   const { total, index, playing } = playback;
   const hasSteps = total > 0;
 
@@ -35,7 +34,6 @@ export function Controls({ playback, result, solving, canSolve, onSolve, onClear
         <button onClick={playback.toEnd} disabled={!hasSteps || index >= total}>
           Skip to end ⏭
         </button>
-        <button onClick={onClear}>Clear clues</button>
       </div>
 
       <div className="control-row">

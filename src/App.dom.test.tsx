@@ -75,15 +75,19 @@ describe('the page', () => {
 
     const rowHeader = document.querySelectorAll('.clue-row')[0] as HTMLElement;
     await user.click(rowHeader);
+    // The editor is portalled to <body>, so it escapes the grid's scroll clipping.
     const input = screen.getByRole('textbox', { name: 'Row 1 clues' });
+    expect(input.closest('.clue-editor')?.parentElement).toBe(document.body);
     await user.clear(input);
     await user.type(input, '4 4');
-    expect(rowHeader.querySelector('input')).toHaveValue('4 4');
+    expect(input).toHaveValue('4 4');
+    expect(rowHeader.textContent).toBe('44');
 
     await user.keyboard('{Enter}');
     expect(screen.getByRole('textbox', { name: 'Row 2 clues' })).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(rowHeader.textContent).toBe('44');
   });
 
@@ -144,5 +148,62 @@ describe('the page', () => {
 
     render(<App />);
     expect((document.querySelectorAll('.clue-row')[0] as HTMLElement).textContent).toBe('7');
+  });
+});
+
+describe('on a phone-sized viewport', () => {
+  const setViewport = (width: number) => {
+    Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true });
+    window.dispatchEvent(new Event('resize'));
+  };
+
+  beforeEach(() => setViewport(375));
+  afterEach(() => setViewport(1024));
+
+  it('docks the clue editor to the top instead of floating beside a header', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(document.querySelectorAll('.clue-col')[0] as HTMLElement);
+    const box = document.querySelector('.clue-editor') as HTMLElement;
+
+    expect(box).toHaveClass('docked');
+    expect(box.style.width).toBe('359px'); // viewport minus an 8px gutter each side
+    expect(box.style.left).toBe('8px');
+    expect(box.style.top).toBe('8px');
+    expect(box).toHaveTextContent('Column 1');
+  });
+
+  it('can be driven entirely by touch, with no keyboard', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(document.querySelectorAll('.clue-row')[0] as HTMLElement);
+    await user.clear(screen.getByRole('textbox'));
+    await user.type(screen.getByRole('textbox'), '2 2');
+
+    await user.click(screen.getByRole('button', { name: 'Next line' }));
+    expect(screen.getByRole('textbox', { name: 'Row 2 clues' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Previous line' }));
+    expect(screen.getByRole('textbox', { name: 'Row 1 clues' })).toHaveValue('2 2');
+
+    await user.click(screen.getByRole('button', { name: 'Done editing clues' }));
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect((document.querySelectorAll('.clue-row')[0] as HTMLElement).textContent).toBe('22');
+  });
+
+  it('flags an invalid clue as you type it', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(document.querySelectorAll('.clue-row')[0] as HTMLElement);
+    await user.clear(screen.getByRole('textbox'));
+    await user.type(screen.getByRole('textbox'), '3 x');
+
+    expect(document.querySelector('.clue-editor')).toHaveClass('invalid');
+    // The bad text is not committed to the puzzle.
+    expect((document.querySelectorAll('.clue-row')[0] as HTMLElement).textContent).toBe('3');
   });
 });

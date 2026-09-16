@@ -43,12 +43,19 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-text-size-adjust: 100%;
 }
 
 .app {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 28px 24px 64px;
+  padding: 28px max(24px, env(safe-area-inset-left)) calc(64px + env(safe-area-inset-bottom));
+}
+
+button,
+.clue-cell {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .masthead h1 {
@@ -110,6 +117,8 @@ body {
 
 .setup select { min-width: 160px; }
 
+.setup-action { margin-left: auto; }
+
 .problems {
   margin: 0 0 12px;
   padding: 10px 14px 10px 32px;
@@ -145,7 +154,9 @@ body {
 /* ---------- grid ---------- */
 
 .grid-wrap {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   padding-bottom: 8px;
 }
 
@@ -155,13 +166,19 @@ body {
   user-select: none;
 }
 
+/* Row clues stay put while a wide grid scrolls sideways.
+   (`.clue-row` gets its own `position` below — it must come after `.clue-cell`.) */
 .corner {
+  position: sticky;
+  left: 0;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
   padding: 3px 6px;
   font-size: 11px;
   color: var(--muted);
+  background: var(--panel);
+  z-index: 3;
 }
 
 .clue-cell {
@@ -171,7 +188,7 @@ body {
   cursor: text;
   color: var(--text);
   font-variant-numeric: tabular-nums;
-  font-size: calc(var(--cell) * 0.5);
+  font-size: var(--clue-font);
   line-height: 1.1;
   background: var(--panel-2);
   outline: none;
@@ -181,6 +198,7 @@ body {
 .clue-cell:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .clue-cell.active { background: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); }
 .clue-cell.invalid { color: var(--bad); background: color-mix(in srgb, var(--bad) 18%, var(--panel-2)); }
+.clue-cell.editing { box-shadow: inset 0 0 0 2px var(--accent); }
 
 .clue-col {
   flex-direction: column;
@@ -191,6 +209,9 @@ body {
 }
 
 .clue-row {
+  position: sticky;
+  left: 0;
+  z-index: 2;
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
@@ -201,32 +222,61 @@ body {
 .clue-col.major { border-left: 2px solid var(--line-strong); }
 .clue-row.major { border-top: 2px solid var(--line-strong); }
 
-.clue-input {
-  position: absolute;
-  z-index: 5;
-  font: inherit;
-  font-size: 14px;
-  color: var(--text);
+.clue-editor {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
   background: var(--panel);
   border: 2px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 35%);
+}
+
+.clue-editor.invalid { border-color: var(--bad); }
+
+.clue-editor-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.clue-editor input {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* 16px keeps iOS from zooming the page when the field takes focus. */
+  font: 16px/1.3 inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 4px 6px;
-  width: 9em;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 35%);
+  padding: 6px 8px;
 }
 
-.clue-input-col {
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
+.clue-editor-actions {
+  display: flex;
+  gap: 4px;
 }
 
-.clue-input-row {
-  right: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  text-align: right;
+.clue-editor-actions button {
+  padding: 4px 9px;
+  min-width: 32px;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.clue-editor.docked {
+  border-radius: 12px;
+  padding: 9px 10px;
+}
+
+.clue-editor.docked .clue-editor-actions button {
+  min-width: 44px;
+  min-height: 40px;
 }
 
 .cell {
@@ -391,3 +441,93 @@ button.primary {
 .log-item.kind-contradiction .log-text { color: var(--bad); }
 .log-item.kind-done .log-text { color: var(--good); font-weight: 600; }
 .log-item.kind-aborted .log-text { color: var(--warn); font-weight: 600; }
+
+
+/* ---------- responsive ---------- */
+
+/* Stacked layout: the log sits under the board, so it must not be sticky or
+   viewport-tall any more. */
+@media (max-width: 960px) {
+  .log {
+    position: static;
+    max-height: none;
+  }
+
+  .log-list { max-height: 50vh; }
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 18px max(12px, env(safe-area-inset-left))
+      calc(32px + env(safe-area-inset-bottom));
+  }
+
+  .masthead h1 { font-size: 21px; }
+  .masthead p { font-size: 14px; }
+
+  .setup {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .setup .field { flex: 1 1 calc(50% - 5px); }
+  .setup .field-wide { flex: 1 1 100%; }
+
+  .setup input,
+  .setup select {
+    width: 100%;
+    min-width: 0;
+    /* 16px stops iOS zooming in on focus. */
+    font-size: 16px;
+    padding: 9px 8px;
+  }
+
+  .setup-action {
+    flex: 1 1 100%;
+    margin-left: 0;
+    min-height: 42px;
+  }
+
+  .board {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .layout { gap: 14px; }
+
+  /* Comfortable touch targets, and the transport buttons share the width evenly
+     instead of leaving ragged gaps. */
+  .control-row button {
+    flex: 1 1 auto;
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+
+  .control-row button.primary { flex-basis: 100%; }
+
+  .slider { flex-basis: 100%; }
+  .slider.narrow { flex-basis: 100%; }
+  .slider input { height: 28px; }
+
+  .log {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .log-list { max-height: 42vh; }
+  .log-item { padding: 8px 7px; }
+}
+
+@media (max-width: 380px) {
+  .setup .field { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

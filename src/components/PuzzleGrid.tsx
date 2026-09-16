@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useElementWidth } from '../hooks/useElementWidth';
 import { formatClues, parseClues, type PuzzleProblem } from '../solver/clues';
 import { FILLED, EMPTY, idx, type Axis, type Grid, type LineRef, type Puzzle } from '../solver/types';
+import { ClueEditor } from './ClueEditor';
+import { ASSUMED_WIDTH, gridMetrics } from './gridMetrics';
 
 interface Props {
   puzzle: Puzzle;
@@ -15,6 +18,7 @@ interface Props {
 interface Editing {
   axis: Axis;
   index: number;
+  anchor: HTMLElement | null;
 }
 
 export function PuzzleGrid({
@@ -27,81 +31,67 @@ export function PuzzleGrid({
 }: Props) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [draft, setDraft] = useState('');
+  const [wrapRef, wrapWidth] = useElementWidth<HTMLDivElement>();
 
   const { width, height, rows, cols } = puzzle;
   const cluesFor = (axis: Axis, index: number) => (axis === 'row' ? rows : cols)[index] ?? [];
 
   const rowDepth = Math.max(1, ...rows.map((c) => c.length));
   const colDepth = Math.max(1, ...cols.map((c) => c.length));
-  const cell = Math.max(15, Math.min(30, Math.floor(620 / Math.max(width, height))));
-  const clueStep = cell * 0.55 + 3;
-  const colHeader = Math.max(2.2 * cell, colDepth * clueStep + 8);
-  const rowHeader = Math.max(2.2 * cell, rowDepth * (clueStep + cell * 0.2) + 10);
+  const metrics = gridMetrics(wrapWidth || ASSUMED_WIDTH, width, rowDepth, colDepth);
 
   const badLines = new Set(
     problems.filter((p) => p.axis !== 'puzzle').map((p) => `${p.axis}-${p.index}`),
   );
 
-  const beginEdit = (axis: Axis, index: number) => {
-    // Clicks inside the open input bubble up to the header cell; ignore those.
+  const beginEdit = (axis: Axis, index: number, anchor: HTMLElement | null) => {
     if (editing?.axis === axis && editing.index === index) return;
-    setEditing({ axis, index });
+    setEditing({ axis, index, anchor });
     setDraft(formatClues(cluesFor(axis, index)));
   };
 
   const move = (delta: number) => {
     if (!editing) return;
-    const max = editing.axis === 'row' ? height : width;
+    const { axis } = editing;
     const next = editing.index + delta;
-    if (next >= 0 && next < max) beginEdit(editing.axis, next);
-    else setEditing(null);
+    if (next < 0 || next >= (axis === 'row' ? height : width)) {
+      setEditing(null);
+      return;
+    }
+    const anchor = document.querySelector<HTMLElement>(
+      `[data-line="${axis}-${next}"]`,
+    );
+    setEditing({ axis, index: next, anchor });
+    setDraft(formatClues(cluesFor(axis, next)));
   };
 
-  const editor = (axis: Axis, index: number) => (
-    <input
-      key={`${axis}-${index}`}
-      className={`clue-input clue-input-${axis}`}
-      autoFocus
-      value={draft}
-      spellCheck={false}
-      aria-label={`${axis === 'row' ? 'Row' : 'Column'} ${index + 1} clues`}
-      onChange={(e) => {
-        const value = e.target.value;
-        setDraft(value);
-        // Commit live, so the grid always reflects what is legible in the box.
-        const parsed = parseClues(value);
-        if (parsed) onCluesChange(axis, index, parsed);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          move(e.shiftKey ? -1 : 1);
-        } else if (e.key === 'Tab') {
-          e.preventDefault();
-          move(e.shiftKey ? -1 : 1);
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setEditing(null);
-        }
-      }}
-      // Only close if focus left the cell we are still editing — moving on re-focuses.
-      onBlur={() => setEditing((cur) => (cur?.axis === axis && cur.index === index ? null : cur))}
-    />
-  );
-
-  const isEditing = (axis: Axis, index: number) =>
-    editing?.axis === axis && editing.index === index;
+  const headerProps = (axis: Axis, index: number) => ({
+    'data-line': `${axis}-${index}`,
+    role: 'button' as const,
+    tabIndex: 0,
+    onClick: (e: React.MouseEvent<HTMLDivElement>) => beginEdit(axis, index, e.currentTarget),
+    onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+      // Keystrokes from the editor can bubble through here; ignore them.
+      if (e.target !== e.currentTarget) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        beginEdit(axis, index, e.currentTarget);
+      }
+    },
+  });
 
   const clueText = (clues: number[]) => (clues.length ? clues : [0]);
 
   return (
     <div
+      ref={wrapRef}
       className="grid-wrap"
       style={
         {
-          '--cell': `${cell}px`,
-          '--row-header': `${rowHeader}px`,
-          '--col-header': `${colHeader}px`,
+          '--cell': `${metrics.cell}px`,
+          '--clue-font': `${metrics.clueFont}px`,
+          '--row-header': `${metrics.rowHeader}px`,
+          '--col-header': `${metrics.colHeader}px`,
         } as React.CSSProperties
       }
     >
@@ -113,35 +103,27 @@ export function PuzzleGrid({
         }}
       >
         <div className="corner">
-          <span>{width}×{height}</span>
+          <span>
+            {width}×{height}
+          </span>
         </div>
 
         {Array.from({ length: width }, (_, c) => (
           <div
             key={`ch-${c}`}
+            {...headerProps('col', c)}
             className={[
               'clue-cell',
               'clue-col',
               c % 5 === 0 ? 'major' : '',
               activeLine?.axis === 'col' && activeLine.index === c ? 'active' : '',
               badLines.has(`col-${c}`) ? 'invalid' : '',
+              editing?.axis === 'col' && editing.index === c ? 'editing' : '',
             ].join(' ')}
-            onClick={() => beginEdit('col', c)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              // Keystrokes from the open editor bubble through here — ignore them,
-              // or typing a space would be swallowed by this handler.
-              if (e.target !== e.currentTarget) return;
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                beginEdit('col', c);
-              }
-            }}
           >
-            {isEditing('col', c)
-              ? editor('col', c)
-              : clueText(cols[c] ?? []).map((n, i) => <span key={i}>{n}</span>)}
+            {clueText(cols[c] ?? []).map((n, i) => (
+              <span key={i}>{n}</span>
+            ))}
           </div>
         ))}
 
@@ -154,13 +136,33 @@ export function PuzzleGrid({
             highlighted={highlighted}
             activeLine={activeLine}
             invalid={badLines.has(`row-${r}`)}
-            editing={isEditing('row', r)}
-            editor={editor}
-            beginEdit={beginEdit}
+            editing={editing?.axis === 'row' && editing.index === r}
+            headerProps={headerProps}
             clueText={clueText}
           />
         ))}
       </div>
+
+      {editing && (
+        <ClueEditor
+          axis={editing.axis}
+          index={editing.index}
+          anchor={editing.anchor}
+          value={draft}
+          valid={parseClues(draft) !== null}
+          onChange={(value) => {
+            setDraft(value);
+            // Commit live, so the grid always reflects what is legible in the box.
+            const parsed = parseClues(value);
+            if (parsed) onCluesChange(editing.axis, editing.index, parsed);
+          }}
+          onMove={move}
+          onClose={() => setEditing(null)}
+          onBlur={(axis, index) =>
+            setEditing((cur) => (cur?.axis === axis && cur.index === index ? null : cur))
+          }
+        />
+      )}
     </div>
   );
 }
@@ -173,8 +175,7 @@ interface RowProps {
   activeLine?: LineRef;
   invalid: boolean;
   editing: boolean;
-  editor: (axis: Axis, index: number) => React.ReactNode;
-  beginEdit: (axis: Axis, index: number) => void;
+  headerProps: (axis: Axis, index: number) => Record<string, unknown>;
   clueText: (clues: number[]) => number[];
 }
 
@@ -186,8 +187,7 @@ function Row({
   activeLine,
   invalid,
   editing,
-  editor,
-  beginEdit,
+  headerProps,
   clueText,
 }: RowProps) {
   const { width, rows } = puzzle;
@@ -196,25 +196,19 @@ function Row({
   return (
     <>
       <div
+        {...headerProps('row', r)}
         className={[
           'clue-cell',
           'clue-row',
           r % 5 === 0 ? 'major' : '',
           rowActive ? 'active' : '',
           invalid ? 'invalid' : '',
+          editing ? 'editing' : '',
         ].join(' ')}
-        onClick={() => beginEdit('row', r)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            beginEdit('row', r);
-          }
-        }}
       >
-        {editing ? editor('row', r) : clueText(rows[r] ?? []).map((n, i) => <span key={i}>{n}</span>)}
+        {clueText(rows[r] ?? []).map((n, i) => (
+          <span key={i}>{n}</span>
+        ))}
       </div>
 
       {Array.from({ length: width }, (_, c) => {
