@@ -6,10 +6,10 @@ import App from '../App';
 import { PhotoImport } from './PhotoImport';
 import { perfectEngine, toImageData } from '../photo/__fixtures__/engine';
 import { renderPuzzle } from '../photo/__fixtures__/render';
-import { SAMPLES, samplePuzzle } from '../samples';
+import { samplePuzzle, sampleNamed } from '../samples';
 import type { OcrEngine } from '../photo/ocr';
 
-const puzzle = samplePuzzle(SAMPLES[0]); // Heart, 9x9
+const puzzle = samplePuzzle(sampleNamed('Heart')); // Heart, 9x9
 const rendered = renderPuzzle(puzzle);
 
 /**

@@ -139,6 +139,28 @@ export function otsuThreshold(img: GrayImage): number {
   return best;
 }
 
+/**
+ * True when the image is light-on-dark — a screenshot in dark mode, or a photo of a
+ * screen. Everything downstream assumes dark ink on light paper, so such an image has to
+ * be inverted first or the background becomes the "ink".
+ *
+ * Decided by splitting at the Otsu threshold and asking which class is bigger: whichever
+ * covers more of the image is the background. On an unsolved puzzle the paper always
+ * wins, since the grid is mostly empty.
+ */
+export function isLightOnDark(img: GrayImage): boolean {
+  const threshold = otsuThreshold(img);
+  let dark = 0;
+  for (const v of img.data) if (v <= threshold) dark++;
+  return dark * 2 > img.data.length;
+}
+
+export function invert(img: GrayImage): GrayImage {
+  const data = new Uint8ClampedArray(img.data.length);
+  for (let i = 0; i < data.length; i++) data[i] = 255 - img.data[i];
+  return { width: img.width, height: img.height, data };
+}
+
 /** Pixels at or below `threshold` become ink. */
 export function binarize(img: GrayImage, threshold: number): BinaryImage {
   const data = new Uint8Array(img.width * img.height);

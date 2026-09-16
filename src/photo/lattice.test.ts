@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SAMPLES, samplePuzzle } from '../samples';
+import { SAMPLES, samplePuzzle, sampleNamed } from '../samples';
 import { binarize, flattenIllumination, otsuThreshold, type BinaryImage, type GrayImage } from './image';
 import { clusterPeaks, detectLattice, fitUniform, latticeOfSize } from './lattice';
 import { addNoise, applyIlluminationGradient, renderPuzzle, type RenderOptions } from './__fixtures__/render';
@@ -67,28 +67,28 @@ describe('detectLattice', () => {
   });
 
   it('survives an uneven illumination gradient', () => {
-    const puzzle = samplePuzzle(SAMPLES[3]); // Tree, 15x15
+    const puzzle = samplePuzzle(sampleNamed('Tree')); // Tree, 15x15
     const { binary } = prepare(puzzle, {}, (g) => applyIlluminationGradient(g));
     const result = detectLattice(binary);
     expect(result.ok && [result.width, result.height]).toEqual([15, 15]);
   });
 
   it('survives speckle noise', () => {
-    const puzzle = samplePuzzle(SAMPLES[0]);
+    const puzzle = samplePuzzle(sampleNamed('Heart'));
     const { binary } = prepare(puzzle, {}, (g) => addNoise(g, 0.01, 7));
     const result = detectLattice(binary);
     expect(result.ok && [result.width, result.height]).toEqual([9, 9]);
   });
 
   it('handles a small cell size', () => {
-    const puzzle = samplePuzzle(SAMPLES[1]);
+    const puzzle = samplePuzzle(sampleNamed('Cat'));
     const { binary } = prepare(puzzle, { cell: 12 });
     const result = detectLattice(binary);
     expect(result.ok && [result.width, result.height]).toEqual([10, 10]);
   });
 
   it('handles clue bands that are ruled like a table', () => {
-    const puzzle = samplePuzzle(SAMPLES[0]);
+    const puzzle = samplePuzzle(sampleNamed('Heart'));
     const { binary } = prepare(puzzle, { ruledClueBands: true });
     const result = detectLattice(binary);
     expect(result.ok && [result.width, result.height]).toEqual([9, 9]);

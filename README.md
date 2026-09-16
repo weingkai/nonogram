@@ -81,23 +81,32 @@ after which the import works with no network at all.
 
 1. **Prepare** — grayscale, then divide out a heavily blurred copy of the image. That
    removes page shading and soft shadows, so one threshold works across the whole picture.
+   Everything downstream assumes dark ink on light paper, so a light-on-dark source — a
+   dark-mode screenshot, a photo of a screen — has to be inverted first. Which way round
+   an image is cannot be told reliably from the picture alone (a dark puzzle against a
+   pale wall reads as either), so the import simply tries both and keeps whichever finds
+   a grid.
 2. **Straighten** — scans are rarely square, and grid detection tolerates only about half a
    degree of tilt, so the skew angle is found by rotating until the ink piles up most
    sharply into rows.
 3. **Find the grid** — for each column, the longest unbroken run of ink. A grid rule runs
    nearly the height of the grid; a clue digit never comes close, so a simple threshold
-   separates them. The line positions are then refitted to an exact pitch, which recovers
-   faint rules and discards strays like a page border. This yields the grid rectangle and
-   the puzzle's size for free.
+   separates them. Peaks far closer together than the pitch are merged first: a heavier
+   every-fifth rule drawn beside the ordinary one resolves as two peaks a few pixels
+   apart, and that tiny gap is not a whole number of cells. The positions are then
+   refitted to an exact pitch, which recovers faint rules and discards strays like a page
+   border. This yields the grid rectangle and the puzzle's size for free.
 4. **Trim the clue bands** — if the puzzle rules its clue areas like a table, those
    separators look like grid lines too. The grid proper is the one region with no *interior*
    ink, since clue cells hold digits and grid cells do not.
 5. **Read** — one OCR pass per clue line, on a crop of just that line. This matters twice
    over: tesseract only reliably reads an isolated digit when given nothing else, and a
    digit cannot be attributed to the wrong line if the image *is* the line.
-6. **Group** — digits are placed into clues by which cell of the lattice they fall in,
-   never by tesseract's own word boundaries. Two clues side by side otherwise come back as
-   one number, and a wide two-digit clue comes back as two.
+6. **Group** — digits are placed into clues by which slot they fall in, never by
+   tesseract's own word boundaries. Two clues side by side otherwise come back as one
+   number, and a wide two-digit clue comes back as two. The slot pitch is measured from
+   the digits themselves rather than assumed equal to the grid's: plenty of puzzles pack
+   their clue numbers tighter than the cells they describe.
 
 ### How far to trust it
 
@@ -111,6 +120,12 @@ edit the line.
 If the size comes out wrong, correct it in the import dialog and the clues are re-read at
 the new size. Flat screenshots and scans read most reliably; angled or shadowed photos will
 sometimes misread.
+
+The hardest cases are stylised display faces — the squared-off LED-style digits some
+puzzle games use, where a `6` is drawn much like a `b`. Grid detection copes with those
+fine, but tesseract's English model does not, and enough clues come back wrong that typing
+them is quicker. `src/photo/photo.test.ts` keeps one such photo as a fixture and asserts
+the geometry only, for that reason.
 
 ## How the solver works
 

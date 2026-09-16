@@ -46,8 +46,8 @@ export function assignLines(
   rowLines: RecognisedSymbol[][],
   colLines: RecognisedSymbol[][],
 ): Reading {
-  const pitchX = lattice.grid.width / lattice.width;
-  const pitchY = lattice.grid.height / lattice.height;
+  const pitchX = cluePitch(rowLines, 'x', lattice.grid.width / lattice.width);
+  const pitchY = cluePitch(colLines, 'y', lattice.grid.height / lattice.height);
 
   const rows = rowLines.map((symbols) => readLine(symbols, lattice.grid.x, pitchX, 'x'));
   const cols = colLines.map((symbols) => readLine(symbols, lattice.grid.y, pitchY, 'y'));
@@ -63,6 +63,43 @@ export function assignLines(
     cols: cols.map((c) => c.reading),
     strays: [...rows, ...cols].reduce((total, line) => total + line.strays, 0),
   };
+}
+
+/**
+ * How far apart consecutive clues sit.
+ *
+ * Not the same as the grid's pitch: plenty of puzzles pack their clue numbers tighter
+ * than the cells they describe, and assuming otherwise merges neighbouring clues into
+ * one number. Measuring it from the digits themselves costs nothing and covers both.
+ *
+ * The estimate is the median spacing between neighbouring digits across every line.
+ * Gaps where a slot is empty come out as multiples and are outvoted; digits *within* a
+ * number are closer together and outvoted too, as long as most clues are single numbers.
+ * Anything implausible relative to the grid falls back to the grid pitch.
+ */
+export function cluePitch(
+  lines: RecognisedSymbol[][],
+  axis: 'x' | 'y',
+  gridPitch: number,
+): number {
+  const spacings: number[] = [];
+  for (const symbols of lines) {
+    const along = [...symbols]
+      .map((s) => (axis === 'x' ? centre(s.box).x : centre(s.box).y))
+      .sort((a, b) => a - b);
+    for (let i = 1; i < along.length; i++) {
+      const gap = along[i] - along[i - 1];
+      if (gap > 0) spacings.push(gap);
+    }
+  }
+  if (spacings.length < 4) return gridPitch;
+
+  spacings.sort((a, b) => a - b);
+  const mid = spacings.length >> 1;
+  const estimate =
+    spacings.length % 2 ? spacings[mid] : (spacings[mid - 1] + spacings[mid]) / 2;
+
+  return estimate >= gridPitch * 0.4 && estimate <= gridPitch * 1.5 ? estimate : gridPitch;
 }
 
 function readLine(

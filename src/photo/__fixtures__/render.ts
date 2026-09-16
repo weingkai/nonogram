@@ -24,6 +24,11 @@ export interface RenderOptions {
   digitScale?: number;
   /** Soften edges by this radius, standing in for anti-aliased rendering. */
   antialias?: number;
+  /**
+   * Spacing between clue slots. Defaults to the cell size, but real puzzles often pack
+   * their clues tighter than the grid — which is exactly what broke cell-based grouping.
+   */
+  clueSpacing?: number;
 }
 
 export interface ClueBlob {
@@ -67,8 +72,9 @@ export function renderPuzzle(puzzle: Puzzle, options: RenderOptions = {}): Rende
   const rowDepth = Math.max(1, ...rows.map((c) => c.length));
   const colDepth = Math.max(1, ...cols.map((c) => c.length));
 
-  const rowBand = rowDepth * cell;
-  const colBand = colDepth * cell;
+  const clueSpacing = options.clueSpacing ?? cell;
+  const rowBand = Math.ceil(rowDepth * clueSpacing) + cell;
+  const colBand = Math.ceil(colDepth * clueSpacing) + cell;
   const gridX = margin + rowBand;
   const gridY = margin + colBand;
   const gridW = puzzle.width * cell;
@@ -94,10 +100,10 @@ export function renderPuzzle(puzzle: Puzzle, options: RenderOptions = {}): Rende
   if (options.ruledClueBands) {
     // Vertical separators inside the row-clue band, and horizontal ones in the column band.
     for (let k = 0; k <= rowDepth; k++) {
-      fillRect(img, margin + k * cell, gridY, line, gridH, ink);
+      fillRect(img, gridX - (k + 1) * clueSpacing, gridY, line, gridH, ink);
     }
     for (let k = 0; k <= colDepth; k++) {
-      fillRect(img, gridX, margin + k * cell, gridW, line, ink);
+      fillRect(img, gridX, gridY - (k + 1) * clueSpacing, gridW, line, ink);
     }
   }
 
@@ -105,13 +111,13 @@ export function renderPuzzle(puzzle: Puzzle, options: RenderOptions = {}): Rende
   const blobs: ClueBlob[] = [];
   const scale = options.digitScale;
 
-  const place = (value: number, slotX: number, slotY: number): Rect => {
+  const place = (value: number, slotX: number, slotY: number, slotW: number, slotH: number): Rect => {
     const text = String(value);
     const w = scale ? numberWidth(text, scale) : Math.round(cell * 0.42);
     const h = scale ? numberHeight(scale) : Math.round(cell * 0.6);
     const box: Rect = {
-      x: Math.round(slotX + (cell - w) / 2),
-      y: Math.round(slotY + (cell - h) / 2),
+      x: Math.round(slotX + (slotW - w) / 2),
+      y: Math.round(slotY + (slotH - h) / 2),
       width: w,
       height: h,
     };
@@ -123,7 +129,13 @@ export function renderPuzzle(puzzle: Puzzle, options: RenderOptions = {}): Rende
   rows.forEach((clues, r) => {
     clues.forEach((value, k) => {
       const slot = clues.length - 1 - k; // 0 = nearest the grid
-      const box = place(value, gridX - (slot + 1) * cell, gridY + r * cell);
+      const box = place(
+        value,
+        gridX - (slot + 1) * clueSpacing,
+        gridY + r * cell,
+        clueSpacing,
+        cell,
+      );
       blobs.push({ axis: 'row', line: r, order: k, value, box });
     });
   });
@@ -131,7 +143,13 @@ export function renderPuzzle(puzzle: Puzzle, options: RenderOptions = {}): Rende
   cols.forEach((clues, c) => {
     clues.forEach((value, k) => {
       const slot = clues.length - 1 - k;
-      const box = place(value, gridX + c * cell, gridY - (slot + 1) * cell);
+      const box = place(
+        value,
+        gridX + c * cell,
+        gridY - (slot + 1) * clueSpacing,
+        cell,
+        clueSpacing,
+      );
       blobs.push({ axis: 'col', line: c, order: k, value, box });
     });
   });

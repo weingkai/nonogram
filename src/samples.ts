@@ -53,6 +53,27 @@ export const SAMPLES: Sample[] = [
     ],
   },
   {
+    // Transcribed from a photo of a puzzle game; solves with no guessing.
+    name: 'No. 009 (15×15)',
+    art: [
+      '######...######',
+      '####..###..####',
+      '###.#######.###',
+      '##.#.#...#.#.##',
+      '#.#.###..#..#.#',
+      '#.#.##..###.#.#',
+      '.##..#..##..##.',
+      '.##.........##.',
+      '.##........###.',
+      '#.##......###.#',
+      '#.#.#.......#.#',
+      '##.#.##.#..#.##',
+      '###.##..###.###',
+      '####..###..####',
+      '######...######',
+    ],
+  },
+  {
     name: 'Tree (15×15)',
     art: [
       '.......#.......',
@@ -80,4 +101,11 @@ export function artToCells(art: string[]): number[][] {
 
 export function samplePuzzle(sample: Sample): Puzzle {
   return cluesFromGrid(artToCells(sample.art));
+}
+
+/** Looks a sample up by a fragment of its name, so tests do not depend on array order. */
+export function sampleNamed(fragment: string): Sample {
+  const found = SAMPLES.find((s) => s.name.toLowerCase().startsWith(fragment.toLowerCase()));
+  if (!found) throw new Error(`No sample named like "${fragment}"`);
+  return found;
 }

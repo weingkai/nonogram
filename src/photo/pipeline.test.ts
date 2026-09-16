@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SAMPLES, samplePuzzle } from '../samples';
+import { SAMPLES, samplePuzzle, sampleNamed } from '../samples';
 import type { Puzzle } from '../solver/types';
 import { rotateGray } from './deskew';
 import type { GrayImage } from './image';
@@ -29,7 +29,7 @@ describe('importPuzzle', () => {
   });
 
   it('round-trips a tilted image by straightening it first', async () => {
-    const puzzle = samplePuzzle(SAMPLES[3]);
+    const puzzle = samplePuzzle(sampleNamed('Tree'));
     const rendered = renderPuzzle(puzzle, { margin: 40 });
     const tilted = rotateGray(rendered.gray, (1.5 * Math.PI) / 180);
 
@@ -56,7 +56,7 @@ describe('importPuzzle', () => {
   });
 
   it('flags clues that were read with low confidence', async () => {
-    const puzzle = samplePuzzle(SAMPLES[0]);
+    const puzzle = samplePuzzle(sampleNamed('Heart'));
     const rendered = renderPuzzle(puzzle);
     const result = await importPuzzle(rendered.gray, perfectEngine(rendered.blobs, 35));
     expect(result.ok).toBe(true);
@@ -65,7 +65,7 @@ describe('importPuzzle', () => {
   });
 
   it('surfaces a totals mismatch when a clue is misread', async () => {
-    const puzzle = samplePuzzle(SAMPLES[0]);
+    const puzzle = samplePuzzle(sampleNamed('Heart'));
     const rendered = renderPuzzle(puzzle);
     // Corrupt one row clue, as a 3-read-as-8 would.
     const corrupted = rendered.blobs.map((b) =>
@@ -79,7 +79,7 @@ describe('importPuzzle', () => {
   });
 
   it('reports progress through the stages', async () => {
-    const rendered = renderPuzzle(samplePuzzle(SAMPLES[0]));
+    const rendered = renderPuzzle(samplePuzzle(sampleNamed('Heart')));
     const onProgress = vi.fn();
     await importPuzzle(rendered.gray, perfectEngine(rendered.blobs), onProgress);
     const stages = onProgress.mock.calls.map(([p]) => p.stage);
@@ -92,7 +92,7 @@ describe('importPuzzle', () => {
 
 describe('reread', () => {
   it('re-reads with a grid size corrected by hand', async () => {
-    const puzzle = samplePuzzle(SAMPLES[1]); // 10x10
+    const puzzle = samplePuzzle(sampleNamed('Cat')); // 10x10
     const rendered = renderPuzzle(puzzle);
     const prepared = prepare(rendered.gray);
 

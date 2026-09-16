@@ -3,7 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
-import { SAMPLES } from './samples';
+import { sampleNamed } from './samples';
 
 const filledCount = () => document.querySelectorAll('.cell.filled').length;
 const emptyCount = () => document.querySelectorAll('.cell.empty').length;
@@ -27,7 +27,7 @@ describe('the page', () => {
     await user.click(screen.getByRole('button', { name: 'Solve' }));
 
     expect(await screen.findByText(/^Solved in \d+ steps/)).toBeInTheDocument();
-    const expectedFilled = SAMPLES[0].art.join('').split('#').length - 1;
+    const expectedFilled = sampleNamed('Heart').art.join('').split('#').length - 1;
     expect(filledCount()).toBe(expectedFilled);
     expect(unknownCount()).toBe(0);
   });

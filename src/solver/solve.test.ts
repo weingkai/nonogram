@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SAMPLES, artToCells, samplePuzzle } from '../samples';
+import { SAMPLES, artToCells, samplePuzzle, sampleNamed } from '../samples';
 import { cluesFromGrid, parseClues, validatePuzzle } from './clues';
 import { applySteps, solveAll } from './solve';
 import { FILLED, idx, type Grid, type Puzzle } from './types';
@@ -70,7 +70,7 @@ describe('solveAll', () => {
   });
 
   it('logs a reason for every deduction', () => {
-    const result = solveAll(samplePuzzle(SAMPLES[0]));
+    const result = solveAll(samplePuzzle(sampleNamed('Heart')));
     for (const step of result.steps) {
       expect(step.message.length).toBeGreaterThan(0);
       if (step.kind === 'deduction') expect(step.technique).toBeDefined();

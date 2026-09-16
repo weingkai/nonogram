@@ -12,7 +12,7 @@ import {
   type GrayImage,
 } from './image';
 import { applyIlluminationGradient, renderPuzzle } from './__fixtures__/render';
-import { SAMPLES, samplePuzzle } from '../samples';
+import { samplePuzzle, sampleNamed } from '../samples';
 
 const imageData = (width: number, height: number, pixels: number[][]): ImageData => {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -68,7 +68,7 @@ describe('otsuThreshold', () => {
 
 describe('flattenIllumination', () => {
   it('recovers the same ink mask from an unevenly lit copy', () => {
-    const rendered = renderPuzzle(samplePuzzle(SAMPLES[0]));
+    const rendered = renderPuzzle(samplePuzzle(sampleNamed('Heart')));
     const shaded = applyIlluminationGradient(rendered.gray, 0.55);
 
     const maskOf = (img: GrayImage) => {
@@ -87,7 +87,7 @@ describe('flattenIllumination', () => {
     // A mild gradient needs no help — one global threshold still separates ink from
     // paper. Flattening earns its place only when the darkest paper is darker than the
     // lightest ink, which is exactly what a hand shadow across a page does.
-    const rendered = renderPuzzle(samplePuzzle(SAMPLES[0]));
+    const rendered = renderPuzzle(samplePuzzle(sampleNamed('Heart')));
     const shaded = applyIlluminationGradient(rendered.gray, 0.95);
 
     const clean = binarize(

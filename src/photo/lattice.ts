@@ -93,6 +93,36 @@ export function clusterPeaks(runs: Int32Array, threshold: number, maxGap = 1): n
   return positions;
 }
 
+/**
+ * Merges positions that sit far closer together than the grid's pitch.
+ *
+ * Puzzles commonly draw a heavier rule every five cells right beside the ordinary one,
+ * and a photo resolves the pair as two peaks a few pixels apart. Left alone that tiny gap
+ * is not a whole number of cells, so it breaks the uniform fit and the grid comes back
+ * truncated.
+ */
+export function mergeClosePeaks(positions: number[], factor = 0.4): number[] {
+  if (positions.length < 3) return positions;
+
+  const gaps: number[] = [];
+  for (let i = 1; i < positions.length; i++) gaps.push(positions[i] - positions[i - 1]);
+  const limit = median(gaps) * factor;
+  if (!(limit > 0)) return positions;
+
+  const merged: number[] = [];
+  let cluster = [positions[0]];
+  for (let i = 1; i < positions.length; i++) {
+    if (positions[i] - positions[i - 1] < limit) {
+      cluster.push(positions[i]);
+    } else {
+      merged.push(cluster.reduce((a, b) => a + b, 0) / cluster.length);
+      cluster = [positions[i]];
+    }
+  }
+  merged.push(cluster.reduce((a, b) => a + b, 0) / cluster.length);
+  return merged;
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = sorted.length >> 1;
@@ -177,8 +207,8 @@ export function detectLattice(img: BinaryImage, options: LatticeOptions = {}): L
     return { ok: false, reason: 'No grid lines found — is this a picture of a nonogram?' };
   }
 
-  const xs = fitUniform(clusterPeaks(vertical, maxVertical * runFraction));
-  const ys = fitUniform(clusterPeaks(horizontal, maxHorizontal * runFraction));
+  const xs = fitUniform(mergeClosePeaks(clusterPeaks(vertical, maxVertical * runFraction)));
+  const ys = fitUniform(mergeClosePeaks(clusterPeaks(horizontal, maxHorizontal * runFraction)));
   if (!xs || !ys) {
     return { ok: false, reason: 'Could not make out an evenly ruled grid.' };
   }

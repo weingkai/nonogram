@@ -5,6 +5,8 @@ import {
   binarize,
   downscale,
   flattenIllumination,
+  invert,
+  isLightOnDark,
   otsuThreshold,
   toGray,
   type BinaryImage,
@@ -30,6 +32,8 @@ export interface Prepared {
   gray: GrayImage;
   binary: BinaryImage;
   skewDegrees: number;
+  /** Set when the source was light-on-dark and had to be inverted. */
+  inverted: boolean;
 }
 
 export interface ImportSuccess {
@@ -52,12 +56,24 @@ export interface ImportFailure {
 
 export type ImportResult = ImportSuccess | ImportFailure;
 
-/** Grayscale, flatten the lighting, threshold, and straighten. Pure — no DOM, no OCR. */
-export function prepare(image: ImageData | GrayImage): Prepared {
+/**
+ * Grayscale, flatten the lighting, threshold, and straighten. Pure — no DOM, no OCR.
+ *
+ * `forceInvert` overrides the automatic light-on-dark check, which only looks at whether
+ * most of the image is dark. That guess is wrong whenever the puzzle is a dark panel
+ * surrounded by something bright, so {@link importPuzzle} tries both ways rather than
+ * trusting it.
+ */
+export function prepare(image: ImageData | GrayImage, forceInvert?: boolean): Prepared {
   // ImageData carries four bytes per pixel; a GrayImage carries one.
   const isRgba = image.data.length === image.width * image.height * 4;
   const source = isRgba ? toGray(image as ImageData) : (image as GrayImage);
-  const scaled = downscale(source, WORKING_SIZE);
+  const shrunk = downscale(source, WORKING_SIZE);
+
+  // Do this before anything else: illumination flattening divides by the local
+  // background, which only makes sense once the paper is the light part.
+  const inverted = forceInvert ?? isLightOnDark(shrunk);
+  const scaled = inverted ? invert(shrunk) : shrunk;
 
   const maskOf = (gray: GrayImage) => {
     const flat = flattenIllumination(gray);
@@ -72,6 +88,7 @@ export function prepare(image: ImageData | GrayImage): Prepared {
     gray,
     binary: straightened.degrees === 0 ? firstPass : maskOf(gray),
     skewDegrees: straightened.degrees,
+    inverted,
   };
 }
 
@@ -131,20 +148,33 @@ export async function importPuzzle(
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<ImportResult> {
   onProgress?.({ stage: 'prepare', message: 'Preparing the image…' });
-  const prepared = prepare(image);
+  onProgress?.({ stage: 'grid', message: 'Looking for the grid…' });
 
-  if (prepared.skewDegrees !== 0) {
-    onProgress?.({
-      stage: 'straighten',
-      message: `Straightened by ${prepared.skewDegrees.toFixed(1)}°.`,
-    });
+  // Whether the puzzle is dark-on-light or light-on-dark cannot be told reliably from
+  // the picture alone — a dark puzzle photographed against a pale wall reads as either.
+  // Finding a grid is the objective test, so try it both ways and keep what works. The
+  // geometry is milliseconds; only the winner goes to OCR.
+  const attempts = [prepare(image), null] as [Prepared, Prepared | null];
+  attempts[1] = prepare(image, !attempts[0].inverted);
+
+  let failure: ImportFailure | null = null;
+  for (const prepared of attempts) {
+    if (!prepared) continue;
+    const lattice = detectLattice(prepared.binary);
+    if (!lattice.ok) {
+      failure ??= { ok: false, reason: lattice.reason, prepared };
+      continue;
+    }
+    if (prepared.skewDegrees !== 0) {
+      onProgress?.({
+        stage: 'straighten',
+        message: `Straightened by ${prepared.skewDegrees.toFixed(1)}°.`,
+      });
+    }
+    return readWithLattice(prepared, lattice, engine, onProgress);
   }
 
-  onProgress?.({ stage: 'grid', message: 'Looking for the grid…' });
-  const lattice = detectLattice(prepared.binary);
-  if (!lattice.ok) return { ok: false, reason: lattice.reason, prepared };
-
-  return readWithLattice(prepared, lattice, engine, onProgress);
+  return failure ?? { ok: false, reason: 'Could not find a grid in that image.' };
 }
 
 /** Re-reads the clues with a grid size the user has corrected by hand. */

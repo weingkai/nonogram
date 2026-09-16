@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SAMPLES, samplePuzzle } from '../samples';
+import { samplePuzzle, sampleNamed } from '../samples';
 import { binarize, flattenIllumination, otsuThreshold } from './image';
 import { deskew, estimateSkew, rotateGray } from './deskew';
 import { detectLattice } from './lattice';
@@ -12,14 +12,14 @@ const binaryOf = (gray: Parameters<typeof flattenIllumination>[0]) => {
 
 describe('estimateSkew', () => {
   it.each([-2, -1, 1.5, 3])('recovers a %s° rotation', (degrees) => {
-    const rendered = renderPuzzle(samplePuzzle(SAMPLES[3]), { margin: 40 });
+    const rendered = renderPuzzle(samplePuzzle(sampleNamed('Tree')), { margin: 40 });
     const rotated = rotateGray(rendered.gray, (degrees * Math.PI) / 180);
     const estimate = estimateSkew(binaryOf(rotated));
     expect(estimate.degrees).toBeCloseTo(degrees, 0);
   });
 
   it('leaves a level image alone', () => {
-    const rendered = renderPuzzle(samplePuzzle(SAMPLES[0]));
+    const rendered = renderPuzzle(samplePuzzle(sampleNamed('Heart')));
     expect(Math.abs(estimateSkew(binaryOf(rendered.gray)).degrees)).toBeLessThanOrEqual(0.25);
   });
 
@@ -30,7 +30,7 @@ describe('estimateSkew', () => {
 
 describe('deskew', () => {
   it('straightens a tilted scan enough for the grid to be found', () => {
-    const puzzle = samplePuzzle(SAMPLES[3]);
+    const puzzle = samplePuzzle(sampleNamed('Tree'));
     const rendered = renderPuzzle(puzzle, { margin: 40 });
     const tilted = rotateGray(rendered.gray, (2 * Math.PI) / 180);
 
@@ -46,7 +46,7 @@ describe('deskew', () => {
   });
 
   it('does not resample an already level image', () => {
-    const rendered = renderPuzzle(samplePuzzle(SAMPLES[0]));
+    const rendered = renderPuzzle(samplePuzzle(sampleNamed('Heart')));
     const result = deskew(rendered.gray, binaryOf(rendered.gray));
     expect(result.degrees).toBe(0);
     expect(result.gray).toBe(rendered.gray);

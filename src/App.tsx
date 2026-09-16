@@ -4,7 +4,7 @@ import { LogPanel } from './components/LogPanel';
 import { PhotoImport } from './components/PhotoImport';
 import { PuzzleGrid } from './components/PuzzleGrid';
 import { usePlayback } from './hooks/usePlayback';
-import { SAMPLES, samplePuzzle } from './samples';
+import { SAMPLES, samplePuzzle, sampleNamed } from './samples';
 import { validatePuzzle } from './solver/clues';
 import { applySteps, solveAll } from './solver/solve';
 import { emptyGrid, idx, type Axis, type Puzzle, type SolveResult } from './solver/types';
@@ -41,7 +41,7 @@ function resized(puzzle: Puzzle, width: number, height: number): Puzzle {
 }
 
 export default function App() {
-  const [puzzle, setPuzzle] = useState<Puzzle>(() => loadStored() ?? samplePuzzle(SAMPLES[0]));
+  const [puzzle, setPuzzle] = useState<Puzzle>(() => loadStored() ?? samplePuzzle(sampleNamed('Heart')));
   const [result, setResult] = useState<SolveResult | null>(null);
   const [solving, setSolving] = useState(false);
   const [importing, setImporting] = useState(false);
