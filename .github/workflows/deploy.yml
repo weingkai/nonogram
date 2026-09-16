@@ -1,34 +1,47 @@
-name: Deploy to GitHub Pages
+# Builds the app and deploys it to GitHub Pages.
+name: Deploy to Pages
 
 on:
+  # Runs on pushes targeting the default branch
   push:
-    branches: [main]
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Let a running deploy finish, but only keep the newest queued one.
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress
+# and latest queued. However, do NOT cancel in-progress runs as we want to allow these
+# production deployments to complete.
 concurrency:
-  group: pages
+  group: "pages"
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      # The English model is ~3MB downloaded from a CDN; the wasm comes from node_modules.
+      # The English model is ~3MB from a CDN; the wasm is copied from node_modules.
       - name: Cache the OCR model
         uses: actions/cache@v4
         with:
@@ -38,28 +51,33 @@ jobs:
       - name: Vendor the OCR engine
         run: npm run setup:ocr
 
-      - run: npx tsc -b
-      - run: npm run lint
-      # Runs after setup:ocr so the real-tesseract test is exercised rather than skipped.
-      - run: npm test
+      - name: Type check
+        run: npx tsc -b
+
+      - name: Lint
+        run: npm run lint
+
+      # After setup:ocr, so the real-tesseract test runs rather than skipping itself.
+      - name: Test
+        run: npm test
 
       - name: Build
         env:
-          # Derives "/nonogram/" from the repo name, so a rename or a fork still works.
+          # A project page serves from /<repo>/, not the root. Deriving the prefix from
+          # the repository name means a rename or a fork needs no edit here.
           BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
+          # The built site, not the repository: index.html at the repo root points at
+          # /src/main.tsx, which only Vite can serve.
           path: dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
